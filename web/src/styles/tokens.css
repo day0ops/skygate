@@ -1,0 +1,17 @@
+:root {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --surface: #121212;
+  --fg: #eaeaea;
+  --muted: #6b7280;
+  --accent: #e61919;
+  --terminal-green: #4af626;
+
+  --status-amber: #f5a524;
+  --status-blue: #3b82f6;
+  --status-landed: var(--terminal-green);
+  --status-cancelled: #7f1d1d;
+
+  --font-display: "Archivo Black", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}

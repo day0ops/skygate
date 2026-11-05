@@ -1,0 +1,230 @@
+openapi: 3.0.3
+info:
+  title: skygate Flight Operations API
+  description: >-
+    Public API for browsing flights and airports and managing bookings.
+    Demo backend for kgateway-field-kit.
+  version: "1.0"
+servers:
+  - url: /v1
+paths:
+  /airports:
+    get:
+      operationId: listAirports
+      summary: List airports
+      responses:
+        "200":
+          description: A list of airports
+  /airports/{code}:
+    get:
+      operationId: getAirport
+      summary: Get an airport by IATA code
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The airport
+        "404":
+          description: Airport not found
+  /flights:
+    get:
+      operationId: listFlights
+      summary: List flights
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: origin
+          in: query
+          schema:
+            type: string
+        - name: destination
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A list of flights
+    post:
+      operationId: createFlight
+      summary: Create a flight
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFlightRequest"
+      responses:
+        "201":
+          description: Flight created
+        "400":
+          description: Invalid request
+  /flights/{id}:
+    get:
+      operationId: getFlight
+      summary: Get a flight by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The flight
+        "404":
+          description: Flight not found
+  /flights/{id}/position:
+    get:
+      operationId: getFlightPosition
+      summary: Get a flight's live position
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The flight's current position
+        "404":
+          description: Flight not found
+        "409":
+          description: Flight is not airborne
+  /flights/{id}/status:
+    patch:
+      operationId: updateFlightStatus
+      summary: Transition a flight to a new status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFlightStatusRequest"
+      responses:
+        "200":
+          description: The updated flight
+        "400":
+          description: Invalid or unknown status
+        "404":
+          description: Flight not found
+  /bookings:
+    post:
+      operationId: createBooking
+      summary: Create a booking
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+      responses:
+        "201":
+          description: Booking created
+        "400":
+          description: Invalid request
+  /bookings/{id}:
+    get:
+      operationId: getBooking
+      summary: Get a booking by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The booking
+        "404":
+          description: Booking not found
+    delete:
+      operationId: cancelBooking
+      summary: Cancel a booking
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Booking cancelled
+        "404":
+          description: Booking not found
+  /meta:
+    get:
+      operationId: getMeta
+      summary: Get build/version metadata
+      responses:
+        "200":
+          description: Version and color of this instance
+  /whoami:
+    get:
+      operationId: whoami
+      summary: Echo back the identity headers the gateway forwarded
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The forwarded request headers
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CreateFlightRequest:
+      type: object
+      required: [flightNumber, originCode, destinationCode]
+      properties:
+        flightNumber:
+          type: string
+        originCode:
+          type: string
+        destinationCode:
+          type: string
+        aircraftId:
+          type: string
+    UpdateFlightStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [scheduled, boarding, departed, airborne, landed, delayed, cancelled]
+    CreateBookingRequest:
+      type: object
+      required: [flightId, passengerName, seat, class]
+      properties:
+        flightId:
+          type: string
+        passengerName:
+          type: string
+        seat:
+          type: string
+        class:
+          type: string
+          enum: [economy, business, first]

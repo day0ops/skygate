@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "skygate.fullname" . }}
+  labels:
+    {{- include "skygate.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "skygate.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "skygate.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: skygate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ports.http }}
+            - name: grpc
+              containerPort: {{ .Values.ports.grpc }}
+          env:
+            - name: PORT
+              value: "{{ .Values.ports.http }}"
+            - name: GRPC_PORT
+              value: "{{ .Values.ports.grpc }}"
+            - name: VERSION
+              value: "{{ .Values.version }}"
+            - name: COLOR
+              value: "{{ .Values.color }}"
+            - name: CHAOS_PANIC_ENABLED
+              value: "{{ .Values.chaos.panicEnabled }}"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

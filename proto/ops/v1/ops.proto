@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package skygate.ops.v1;
+
+option go_package = "skygate/internal/grpcapi/ops/v1;opsv1";
+
+message Flight {
+  string id = 1;
+  string flight_number = 2;
+  string origin_code = 3;
+  string destination_code = 4;
+  string aircraft_id = 5;
+  string status = 6;
+  string gate = 7;
+}
+
+message AssignGateRequest {
+  string flight_id = 1;
+  string gate = 2;
+}
+
+message UpdateFlightStatusRequest {
+  string flight_id = 1;
+  string status = 2;
+}
+
+message Empty {}
+
+// FlightOpsService is the internal-ops gRPC surface - the narrative being
+// that the public product API is REST, while internal/partner systems talk
+// gRPC, and both go through the same gateway.
+service FlightOpsService {
+  rpc AssignGate(AssignGateRequest) returns (Flight);
+  rpc UpdateFlightStatus(UpdateFlightStatusRequest) returns (Flight);
+  rpc StreamFleetStatus(Empty) returns (stream Flight);
+}

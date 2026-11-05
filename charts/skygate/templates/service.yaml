@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "skygate.fullname" . }}
+  labels:
+    {{- include "skygate.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "skygate.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.ports.http }}
+      targetPort: http
+    - name: grpc
+      port: {{ .Values.ports.grpc }}
+      targetPort: grpc

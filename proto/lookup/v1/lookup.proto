@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package skygate.lookup.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "skygate/internal/grpcapi/lookup/v1;lookupv1";
+
+message GetFlightStatusRequest {
+  string flight_id = 1;
+}
+
+message FlightStatusResponse {
+  string flight_id = 1;
+  string status = 2;
+  int32 delay_minutes = 3;
+}
+
+// FlightLookupService has no native REST handler anywhere in this codebase.
+// kgateway's gRPC-JSON transcoding filter is what makes the annotated HTTP
+// path below work as plain JSON - this service exists specifically to
+// demonstrate that.
+service FlightLookupService {
+  rpc GetFlightStatus(GetFlightStatusRequest) returns (FlightStatusResponse) {
+    option (google.api.http) = {
+      get: "/v1/lookup/{flight_id}/status"
+    };
+  }
+}

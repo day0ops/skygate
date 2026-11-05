@@ -1,0 +1,18 @@
+image:
+  repository: skygate
+  tag: dev
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+version: v1
+color: blue
+
+ports:
+  http: 8080
+  grpc: 9090
+
+chaos:
+  panicEnabled: false
+
+resources: {}

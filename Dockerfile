@@ -18,8 +18,8 @@ COPY --from=ui-build /src/internal/web/static ./internal/web/static
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/skygate ./cmd/skygate
 
 FROM gcr.io/distroless/static-debian12:nonroot
-ARG VERSION=dev
-ENV VERSION=$VERSION
+ARG BUILD_VERSION=dev
+ENV BUILD_VERSION=$BUILD_VERSION
 COPY --from=build /out/skygate /skygate
 EXPOSE 8080 9090
 USER nonroot:nonroot

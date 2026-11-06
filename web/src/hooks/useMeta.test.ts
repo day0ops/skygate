@@ -15,7 +15,7 @@ describe("useMeta", () => {
   it("returns meta on a successful fetch", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ version: "v1.2.3", color: "green" }),
+      json: async () => ({ version: "v1.2.3", color: "green", buildVersion: "v0.3.0" }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -23,7 +23,7 @@ describe("useMeta", () => {
 
     await act(async () => {});
 
-    expect(result.current).toEqual({ version: "v1.2.3", color: "green" });
+    expect(result.current).toEqual({ version: "v1.2.3", color: "green", buildVersion: "v0.3.0" });
   });
 
   it("retries every 2s on failure until it succeeds", async () => {
@@ -32,7 +32,7 @@ describe("useMeta", () => {
       .mockResolvedValueOnce({ ok: false, status: 503 })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ version: "v1", color: "blue" }),
+        json: async () => ({ version: "v1", color: "blue", buildVersion: "v0.3.0" }),
       });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -47,6 +47,6 @@ describe("useMeta", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(result.current).toEqual({ version: "v1", color: "blue" });
+    expect(result.current).toEqual({ version: "v1", color: "blue", buildVersion: "v0.3.0" });
   });
 });

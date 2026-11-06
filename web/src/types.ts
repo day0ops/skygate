@@ -1,6 +1,7 @@
 export interface Meta {
   version: string;
   color: string;
+  buildVersion: string;
 }
 
 export interface Gate {

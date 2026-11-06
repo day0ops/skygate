@@ -16,7 +16,10 @@ describe("App", () => {
       "fetch",
       vi.fn((url: string) => {
         if (url === "/v1/meta") {
-          return Promise.resolve({ ok: true, json: async () => ({ version: "v1", color: "blue" }) });
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ version: "v1", color: "blue", buildVersion: "v0.3.0" }),
+          });
         }
         if (url === "/v1/airports") {
           return Promise.resolve({ ok: true, json: async () => [] });
@@ -38,5 +41,6 @@ describe("App", () => {
     expect(screen.getByText(/SKYGATE/)).toBeInTheDocument();
     expect(document.getElementById("map")).toBeInTheDocument();
     expect(screen.getByText(/LIVE ACTIVITY/)).toBeInTheDocument();
+    expect(screen.getByText("Skygate v0.3.0")).toBeInTheDocument();
   });
 });

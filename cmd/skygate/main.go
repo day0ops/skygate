@@ -37,8 +37,14 @@ func main() {
 
 	version := getenv("VERSION", "dev")
 	color := getenv("COLOR", "blue")
+	// buildVersion is the actual software release baked into the image at
+	// build time - kept distinct from version, which routing-canary demo
+	// deployments override with a "v1"/"v2" label to compare instances.
+	buildVersion := getenv("BUILD_VERSION", "dev")
 	panicEnabled := getenv("CHAOS_PANIC_ENABLED", "false") == "true"
-	mux, chaos := rest.NewMux(rest.Deps{Store: st, Version: version, Color: color, PanicEnabled: panicEnabled})
+	mux, chaos := rest.NewMux(rest.Deps{
+		Store: st, Version: version, Color: color, BuildVersion: buildVersion, PanicEnabled: panicEnabled,
+	})
 	mux.Handle("GET /ws/flights", ws.Handler(st, hub))
 
 	staticFS, err := fs.Sub(web.Static, "static")

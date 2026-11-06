@@ -8,5 +8,5 @@ interface FooterProps {
 export function Footer({ meta }: FooterProps) {
   if (!meta) return null;
 
-  return <footer id="build-footer">Skygate {meta.version}</footer>;
+  return <footer id="build-footer">Skygate {meta.buildVersion}</footer>;
 }

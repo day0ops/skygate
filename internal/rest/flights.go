@@ -96,7 +96,7 @@ func RegisterFlights(mux *http.ServeMux, st *store.Store) {
 			return
 		}
 		f.Status = domain.FlightStatus(req.Status)
-		if f.Status != domain.StatusAirborne {
+		if f.Status != domain.StatusAirborne && f.Status != domain.StatusHolding {
 			f.Position = nil
 		}
 		st.PutFlight(f)

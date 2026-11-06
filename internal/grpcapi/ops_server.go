@@ -54,8 +54,8 @@ func (s *OpsServer) AssignGate(ctx context.Context, req *opsv1.AssignGateRequest
 // Returns NotFound if the flight doesn't exist, InvalidArgument if the
 // status isn't one of domain.ValidFlightStatuses. Mirrors the REST PATCH
 // handler's validation and its rule that Position is only meaningful while
-// airborne, so the two write paths can't leave the store in inconsistent
-// states.
+// airborne or holding, so the two write paths can't leave the store in
+// inconsistent states.
 func (s *OpsServer) UpdateFlightStatus(ctx context.Context, req *opsv1.UpdateFlightStatusRequest) (*opsv1.Flight, error) {
 	f, ok := s.store.GetFlight(req.GetFlightId())
 	if !ok {
@@ -65,7 +65,7 @@ func (s *OpsServer) UpdateFlightStatus(ctx context.Context, req *opsv1.UpdateFli
 		return nil, status.Errorf(codes.InvalidArgument, "status %q is not a known flight status", req.GetStatus())
 	}
 	f.Status = domain.FlightStatus(req.GetStatus())
-	if f.Status != domain.StatusAirborne {
+	if f.Status != domain.StatusAirborne && f.Status != domain.StatusHolding {
 		f.Position = nil
 	}
 	s.store.PutFlight(f)

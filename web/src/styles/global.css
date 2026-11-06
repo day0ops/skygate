@@ -124,7 +124,8 @@ main {
 
 .flight.scheduled,
 .flight.boarding,
-.flight.delayed {
+.flight.delayed,
+.flight.holding {
   fill: var(--status-amber);
 }
 

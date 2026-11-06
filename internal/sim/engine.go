@@ -263,6 +263,9 @@ func (e *Engine) updatePosition(f *domain.Flight, progress float64) {
 	dest, _ := e.store.GetAirport(f.DestinationCode)
 	x := origin.X + (dest.X-origin.X)*progress
 	y := origin.Y + (dest.Y-origin.Y)*progress
-	heading := math.Atan2(dest.Y-origin.Y, dest.X-origin.X) * 180 / math.Pi
+	// atan2 measures from due East; the plane icon's native orientation points
+	// North (up) at rotate(0), so the raw angle needs a 90-degree offset to
+	// actually face the travel direction once the frontend rotates it.
+	heading := math.Atan2(dest.Y-origin.Y, dest.X-origin.X)*180/math.Pi + 90
 	f.Position = &domain.Position{X: x, Y: y, Heading: heading, Progress: progress}
 }

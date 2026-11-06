@@ -16,9 +16,15 @@ export function FlightMap({ airports, flights }: FlightMapProps) {
       {airports.map((airport) => (
         <AirportMarker key={airport.code} airport={airport} />
       ))}
-      {Array.from(flights.values()).map((flight) => (
-        <FlightMarker key={flight.id} flight={flight} fallbackPosition={positionByCode.get(flight.originCode)} />
-      ))}
+      {Array.from(flights.values()).map((flight) => {
+        // Landed flights have arrived at their destination, not their origin -
+        // falling back to origin here previously made every landed flight
+        // visibly snap backward across the map while it waited to be removed.
+        const fallbackCode = flight.status === "landed" ? flight.destinationCode : flight.originCode;
+        return (
+          <FlightMarker key={flight.id} flight={flight} fallbackPosition={positionByCode.get(fallbackCode)} />
+        );
+      })}
     </svg>
   );
 }

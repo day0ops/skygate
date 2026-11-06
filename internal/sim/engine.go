@@ -20,26 +20,29 @@ const (
 	departedDuration  = 4 * time.Second
 	landedDuration    = 8 * time.Second
 
-	// Airborne duration scales with actual distance between airports instead
-	// of being fixed, clamped so neither the shortest nor longest route in
-	// seedAirports breaks the "visibly dynamic in a live demo" pacing above.
-	referenceDistance        = 700.0
-	referenceAirborneSeconds = 30.0
-	minAirborneDuration      = 18 * time.Second
-	maxAirborneDuration      = 50 * time.Second
+	// Airborne duration scales with actual distance at a constant velocity,
+	// so every route visually moves at the same speed regardless of how far
+	// apart the airports are. The clamp is a safety net for pathological
+	// distances, not the primary speed-shaping mechanism - a narrow clamp
+	// window previously left some routes up to 7.7x faster than others,
+	// since the real distances in seedAirports range from 67 (LHR-FRA) to
+	// 1441 (SFO-SYD) units, far wider than the old clamp assumed.
+	airborneVelocity    = 9.0 // units per second
+	minAirborneDuration = 5 * time.Second
+	maxAirborneDuration = 5 * time.Minute
 
 	maxActiveFlights = 12
 	spawnInterval    = 6 * time.Second
 	delayChance      = 0.2
 )
 
-// airborneDurationFor scales flight duration by the actual distance between
-// origin and dest, clamped to [minAirborneDuration, maxAirborneDuration] so
-// routes stay demo-paced at both extremes while still feeling different.
+// airborneDurationFor computes flight duration from the actual distance
+// between origin and dest at airborneVelocity, clamped to
+// [minAirborneDuration, maxAirborneDuration] only to guard against
+// pathological distances (near-zero or far beyond any real airport pair).
 func airborneDurationFor(origin, dest domain.Airport) time.Duration {
 	dist := math.Hypot(dest.X-origin.X, dest.Y-origin.Y)
-	seconds := referenceAirborneSeconds * (dist / referenceDistance)
-	d := time.Duration(seconds * float64(time.Second))
+	d := time.Duration(dist / airborneVelocity * float64(time.Second))
 	if d < minAirborneDuration {
 		return minAirborneDuration
 	}

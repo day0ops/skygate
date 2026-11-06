@@ -34,32 +34,40 @@ func TestUpdatePositionIsDeterministicPerFlightID(t *testing.T) {
 	}
 }
 
-func TestAirborneDurationScalesWithDistanceAndClamps(t *testing.T) {
+func TestAirborneDurationKeepsVelocityConstantAcrossRoutes(t *testing.T) {
 	short := domain.Airport{Code: "A", X: 0, Y: 0}
-	shortDest := domain.Airport{Code: "B", X: 100, Y: 0} // well under the clamp floor's reference distance.
+	shortDest := domain.Airport{Code: "B", X: 67, Y: 0} // the real shortest pair in seedAirports (LHR-FRA).
 	long := domain.Airport{Code: "C", X: 0, Y: 0}
-	longDest := domain.Airport{Code: "D", X: 5000, Y: 0} // well over the clamp ceiling's reference distance.
-	mid := domain.Airport{Code: "E", X: 0, Y: 0}
-	midDest := domain.Airport{Code: "F", X: 700, Y: 0} // exactly the reference distance.
+	longDest := domain.Airport{Code: "D", X: 1441, Y: 0} // the real longest pair in seedAirports (SFO-SYD).
 
 	shortDuration := airborneDurationFor(short, shortDest)
 	longDuration := airborneDurationFor(long, longDest)
-	midDuration := airborneDurationFor(mid, midDest)
 
-	if shortDuration != minAirborneDuration {
-		t.Errorf("short route duration = %v, want the clamp floor %v", shortDuration, minAirborneDuration)
-	}
-	if longDuration != maxAirborneDuration {
-		t.Errorf("long route duration = %v, want the clamp ceiling %v", longDuration, maxAirborneDuration)
-	}
-	if midDuration != 30*time.Second {
-		t.Errorf("reference-distance route duration = %v, want 30s", midDuration)
-	}
-	if shortDuration >= midDuration || midDuration >= longDuration {
+	shortVelocity := 67.0 / shortDuration.Seconds()
+	longVelocity := 1441.0 / longDuration.Seconds()
+
+	// A narrow duration clamp previously left routes up to 7.7x faster than
+	// others (3.73 u/s vs 28.81 u/s) - velocity must now stay constant since
+	// duration scales directly from distance with no clamp doing real work
+	// across this range.
+	if diff := math.Abs(shortVelocity - longVelocity); diff > 0.01 {
 		t.Errorf(
-			"expected duration to increase with distance, got short=%v mid=%v long=%v",
-			shortDuration, midDuration, longDuration,
+			"expected velocity to stay constant across routes, got short=%.2f u/s long=%.2f u/s",
+			shortVelocity, longVelocity,
 		)
+	}
+}
+
+func TestAirborneDurationClampsExtremeDistances(t *testing.T) {
+	same := domain.Airport{Code: "A", X: 0, Y: 0}
+	tiny := domain.Airport{Code: "B", X: 1, Y: 0}        // effectively zero distance.
+	far := domain.Airport{Code: "C", X: 1_000_000, Y: 0} // far beyond any real airport pair.
+
+	if d := airborneDurationFor(same, tiny); d != minAirborneDuration {
+		t.Errorf("near-zero distance duration = %v, want the clamp floor %v", d, minAirborneDuration)
+	}
+	if d := airborneDurationFor(same, far); d != maxAirborneDuration {
+		t.Errorf("extreme distance duration = %v, want the clamp ceiling %v", d, maxAirborneDuration)
 	}
 }
 

@@ -1,6 +1,9 @@
 package metrics
 
 import (
+	"bufio"
+	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,6 +49,19 @@ type statusRecorder struct {
 func (r *statusRecorder) WriteHeader(status int) {
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
+}
+
+// Hijack forwards to the underlying ResponseWriter's http.Hijacker, since embedding the
+// http.ResponseWriter interface only promotes methods declared on that interface - Hijack
+// belongs to the separate http.Hijacker interface, so it is not promoted automatically.
+// Without this, every WebSocket upgrade behind Instrument fails even though the real
+// underlying connection supports hijacking.
+func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := r.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("underlying ResponseWriter does not implement http.Hijacker")
+	}
+	return hijacker.Hijack()
 }
 
 // Instrument wraps next, recording RED metrics for every request. The route

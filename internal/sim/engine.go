@@ -255,6 +255,12 @@ func (e *Engine) advance(f domain.Flight, now time.Time) (updated domain.Flight,
 		dest, _ := e.store.GetAirport(f.DestinationCode)
 		progress := float64(elapsed) / float64(airborneDurationFor(origin, dest))
 		if progress >= 1 {
+			if holds, _ := holdDecision(f.ID); holds {
+				f.Status = domain.StatusHolding
+				f.Position = nil
+				e.stateSince[f.ID] = now
+				return f, true, false
+			}
 			f.Status = domain.StatusLanded
 			f.Position = nil
 			e.releaseAircraft(f.AircraftID)
@@ -262,6 +268,16 @@ func (e *Engine) advance(f domain.Flight, now time.Time) (updated domain.Flight,
 			return f, true, false
 		}
 		e.updatePosition(&f, progress)
+		return f, true, false
+	case domain.StatusHolding:
+		if elapsed >= holdingDuration {
+			f.Status = domain.StatusLanded
+			f.Position = nil
+			e.releaseAircraft(f.AircraftID)
+			e.stateSince[f.ID] = now
+			return f, true, false
+		}
+		e.updateHoldingPosition(&f, elapsed)
 		return f, true, false
 	case domain.StatusLanded:
 		if elapsed >= landedDuration {
@@ -293,5 +309,12 @@ func (e *Engine) updatePosition(f *domain.Flight, progress float64) {
 	// atan2 measures from due East; the plane icon's native orientation points
 	// North (up) at rotate(0), so the raw angle needs a 90-degree offset to
 	// actually face the travel direction once the frontend rotates it.
+	f.Position = &domain.Position{X: x, Y: y, Heading: heading + 90, Progress: progress}
+}
+
+func (e *Engine) updateHoldingPosition(f *domain.Flight, elapsed time.Duration) {
+	dest, _ := e.store.GetAirport(f.DestinationCode)
+	_, loops := holdDecision(f.ID)
+	x, y, heading, progress := holdingPosition(dest, elapsed, loops)
 	f.Position = &domain.Position{X: x, Y: y, Heading: heading + 90, Progress: progress}
 }

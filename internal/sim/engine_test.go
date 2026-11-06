@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -154,5 +155,48 @@ func TestEngineInterpolatesAirbornePosition(t *testing.T) {
 	f, _ = st.GetFlight(f.ID)
 	if f.Position == nil || f.Position.Progress < 0.3 {
 		t.Fatalf("expected progress to have advanced, got %+v", f.Position)
+	}
+}
+
+func TestHoldingFlightLandsAfterHoldingDuration(t *testing.T) {
+	st := store.New()
+	st.PutAirport(domain.Airport{Code: "ORI", X: 0, Y: 0})
+	st.PutAirport(domain.Airport{Code: "DST", X: 100, Y: 0})
+	clock := NewManualClock(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	e := NewEngine(st, clock, 1)
+
+	// Find a flight ID that holdDecision says will hold, so this test is
+	// deterministic rather than depending on luck.
+	var holdingID string
+	for i := 0; i < 1000; i++ {
+		id := fmt.Sprintf("flt_search_%d", i)
+		if holds, _ := holdDecision(id); holds {
+			holdingID = id
+			break
+		}
+	}
+	if holdingID == "" {
+		t.Fatal("expected to find at least one flight ID that holds within 1000 tries")
+	}
+
+	aircraft := domain.Aircraft{ID: "acf_test", Status: domain.AircraftAvailable}
+	st.PutAircraft(aircraft)
+	f := domain.Flight{
+		ID: holdingID, OriginCode: "ORI", DestinationCode: "DST", AircraftID: "acf_test", Status: domain.StatusAirborne,
+	}
+	st.PutFlight(f)
+
+	ori, _ := st.GetAirport("ORI")
+	dst, _ := st.GetAirport("DST")
+	e.stateSince[f.ID] = clock.Now()
+	updated, changed, _ := e.advance(f, clock.Now().Add(airborneDurationFor(ori, dst)))
+	if !changed || updated.Status != domain.StatusHolding {
+		t.Fatalf("expected the flight to enter StatusHolding, got status=%v changed=%v", updated.Status, changed)
+	}
+
+	e.stateSince[updated.ID] = clock.Now()
+	landed, changed, _ := e.advance(updated, clock.Now().Add(holdingDuration))
+	if !changed || landed.Status != domain.StatusLanded {
+		t.Fatalf("expected the flight to land after holdingDuration, got status=%v changed=%v", landed.Status, changed)
 	}
 }

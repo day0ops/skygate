@@ -4,6 +4,7 @@ import (
 	"hash/fnv"
 	"math"
 	"math/rand"
+	"time"
 
 	"skygate/internal/domain"
 )
@@ -94,4 +95,36 @@ func (c flightCurve) pointAt(origin, dest domain.Airport, t float64) (x, y, head
 	tx := 3*mt*mt*(p1[0]-origin.X) + 6*mt*t*(p2[0]-p1[0]) + 3*t*t*(dest.X-p2[0])
 	ty := 3*mt*mt*(p1[1]-origin.Y) + 6*mt*t*(p2[1]-p1[1]) + 3*t*t*(dest.Y-p2[1])
 	return x, y, math.Atan2(ty, tx) * 180 / math.Pi
+}
+
+const (
+	holdChance      = 0.28
+	holdRadius      = 18.0
+	holdingDuration = 10 * time.Second
+)
+
+// holdDecision reports whether flightID holds before landing, and if so how
+// many loops - derived deterministically from the flight's ID, exactly like
+// newFlightCurve, so it's stable across ticks without storing new state.
+func holdDecision(flightID string) (holds bool, loops int) {
+	r := flightRand(flightID, "hold")
+	if r.Float64() >= holdChance {
+		return false, 0
+	}
+	if r.Float64() < 0.5 {
+		return true, 1
+	}
+	return true, 2
+}
+
+// holdingPosition computes a circular loop around dest, completing loops
+// total loops as elapsed advances from 0 to holdingDuration.
+func holdingPosition(dest domain.Airport, elapsed time.Duration, loops int) (x, y, headingDeg, progress float64) {
+	t := float64(elapsed) / float64(holdingDuration)
+	theta := 2 * math.Pi * float64(loops) * t
+	x = dest.X + holdRadius*math.Cos(theta)
+	y = dest.Y + holdRadius*math.Sin(theta)
+	tx := -math.Sin(theta)
+	ty := math.Cos(theta)
+	return x, y, math.Atan2(ty, tx) * 180 / math.Pi, t
 }

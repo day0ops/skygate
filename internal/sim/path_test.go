@@ -67,3 +67,56 @@ func TestWavyCurveBulgesAwayFromStraightLine(t *testing.T) {
 		t.Fatalf("expected the wavy curve to bulge away from the straight line, got y=%v", y)
 	}
 }
+
+func TestHoldDecisionIsDeterministicPerFlightID(t *testing.T) {
+	holds1, loops1 := holdDecision("flt_fixed")
+	holds2, loops2 := holdDecision("flt_fixed")
+	if holds1 != holds2 || loops1 != loops2 {
+		t.Fatalf(
+			"expected the same flight ID to always produce the same hold decision, got (%v,%v) and (%v,%v)",
+			holds1, loops1, holds2, loops2,
+		)
+	}
+}
+
+func TestHoldDecisionProducesAMixOfOutcomes(t *testing.T) {
+	seenHold, seenNoHold := false, false
+	for i := 0; i < 200; i++ {
+		holds, loops := holdDecision(fmt.Sprintf("flt_%d", i))
+		if holds {
+			seenHold = true
+			if loops != 1 && loops != 2 {
+				t.Fatalf("expected 1 or 2 loops, got %d", loops)
+			}
+		} else {
+			seenNoHold = true
+		}
+	}
+	if !seenHold || !seenNoHold {
+		t.Fatalf(
+			"expected a mix of holding and non-holding flights across many flights, got seenHold=%v seenNoHold=%v",
+			seenHold, seenNoHold,
+		)
+	}
+}
+
+func TestHoldingPositionCompletesLoopsAroundDestination(t *testing.T) {
+	dest := domain.Airport{Code: "B", X: 500, Y: 300}
+
+	x0, y0, _, progress0 := holdingPosition(dest, 0, 1)
+	if progress0 != 0 {
+		t.Fatalf("progress at elapsed=0 = %v, want 0", progress0)
+	}
+	if math.Abs(x0-(dest.X+holdRadius)) > 0.001 || math.Abs(y0-dest.Y) > 0.001 {
+		t.Fatalf("position at elapsed=0 = (%v,%v), want the circle's start at (%v,%v)", x0, y0, dest.X+holdRadius, dest.Y)
+	}
+
+	xEnd, yEnd, _, progressEnd := holdingPosition(dest, holdingDuration, 1)
+	if progressEnd != 1 {
+		t.Fatalf("progress at elapsed=holdingDuration = %v, want 1", progressEnd)
+	}
+	// One full loop returns to the starting point.
+	if math.Abs(xEnd-x0) > 0.01 || math.Abs(yEnd-y0) > 0.01 {
+		t.Fatalf("after one full loop, expected to return to the start (%v,%v), got (%v,%v)", x0, y0, xEnd, yEnd)
+	}
+}

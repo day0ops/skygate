@@ -59,6 +59,42 @@ func TestInstrumentRecordsPanicAs500(t *testing.T) {
 	}
 }
 
+func TestInstrumentPreservesHijacker(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			w.WriteHeader(http.StatusNotImplemented)
+			return
+		}
+		conn, bufrw, err := hijacker.Hijack()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer conn.Close()
+		_, _ = bufrw.WriteString("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+		_ = bufrw.Flush()
+	})
+	handler := Instrument("v1-hijack-test", inner)
+
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// A WebSocket upgrade works by hijacking the raw connection - if Instrument's
+	// wrapper doesn't forward http.Hijacker, every upgrade attempt behind it fails,
+	// which is exactly what reached production: gorilla/websocket logged "response
+	// does not implement http.Hijacker" for every single request.
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 from a successful hijack, got %d - Instrument's wrapper must implement http.Hijacker", resp.StatusCode)
+	}
+}
+
 func TestInstrumentUsesPatternNotRawPathForCardinality(t *testing.T) {
 	inner := http.NewServeMux()
 	inner.HandleFunc("GET /v1/flights-cardinality-test/{id}", func(w http.ResponseWriter, r *http.Request) {

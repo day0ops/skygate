@@ -55,7 +55,7 @@ func TestAirborneDurationScalesWithDistanceAndClamps(t *testing.T) {
 	if midDuration != 30*time.Second {
 		t.Errorf("reference-distance route duration = %v, want 30s", midDuration)
 	}
-	if !(shortDuration < midDuration && midDuration < longDuration) {
+	if shortDuration >= midDuration || midDuration >= longDuration {
 		t.Errorf(
 			"expected duration to increase with distance, got short=%v mid=%v long=%v",
 			shortDuration, midDuration, longDuration,

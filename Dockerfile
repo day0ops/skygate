@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1
-FROM oven/bun:1 AS ui-build
+# Pinned to the build host's native platform rather than the target platform - its
+# output is platform-independent static assets, and Bun's JIT is prone to crashing
+# under QEMU emulation when the target platform differs from the host's.
+FROM --platform=$BUILDPLATFORM oven/bun:1 AS ui-build
 WORKDIR /src/web
 COPY web/package.json web/bun.lock ./
 RUN bun install --frozen-lockfile

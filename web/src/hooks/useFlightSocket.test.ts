@@ -104,12 +104,12 @@ describe("useFlightSocket", () => {
     expect(result.current.flights.has(landed.id)).toBe(false);
   });
 
-  it("caps the activity log at 50 entries, newest first", async () => {
+  it("caps the activity log at 30 entries, newest first", async () => {
     const { result } = renderHook(() => useFlightSocket());
     const socket = FakeWebSocket.instances[0];
 
     await act(async () => {
-      for (let i = 0; i < 51; i++) {
+      for (let i = 0; i < 31; i++) {
         socket.emitMessage({
           type: "flight_update",
           flight: flight({ id: `fl-${i}`, flightNumber: `UA${i}` }),
@@ -117,9 +117,9 @@ describe("useFlightSocket", () => {
       }
     });
 
-    expect(result.current.log).toHaveLength(50);
-    expect(result.current.log[0].text).toContain("UA50 SFO→JFK: airborne");
-    expect(result.current.log[49].text).toContain("UA1 SFO→JFK: airborne");
+    expect(result.current.log).toHaveLength(30);
+    expect(result.current.log[0].text).toContain("UA30 SFO→JFK: airborne");
+    expect(result.current.log[29].text).toContain("UA1 SFO→JFK: airborne");
   });
 
   it("counts events in the last second and resets every 1s", async () => {

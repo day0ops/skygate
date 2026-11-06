@@ -97,6 +97,29 @@ func TestOpsServerUpdateFlightStatusClearsPositionWhenLeavingAirborne(t *testing
 	}
 }
 
+func TestOpsServerUpdateFlightStatusPreservesPositionWhenHolding(t *testing.T) {
+	st := store.New()
+	st.PutFlight(domain.Flight{
+		ID:       "flt_1",
+		Status:   domain.StatusAirborne,
+		Position: &domain.Position{X: 10, Y: 20, Progress: 0.9},
+	})
+
+	s := NewOpsServer(st)
+	resp, err := s.UpdateFlightStatus(context.Background(), &opsv1.UpdateFlightStatusRequest{FlightId: "flt_1", Status: "holding"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Status != "holding" {
+		t.Fatalf("got status %q, want holding", resp.Status)
+	}
+
+	f, _ := st.GetFlight("flt_1")
+	if f.Position == nil {
+		t.Fatal("expected Position to be preserved when transitioning to holding")
+	}
+}
+
 type fakeStreamServer struct {
 	grpc.ServerStream
 	ctx  context.Context

@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+
+	"skygate/internal/domain"
 )
 
 func TestOpenAPISpecIsValidAndServed(t *testing.T) {
@@ -75,6 +77,46 @@ func TestOpenAPIDocumentsEveryPublicRoute(t *testing.T) {
 		}
 		if _, ok := methods[route.method]; !ok {
 			t.Errorf("openapi.yaml path %q is missing method %q", route.path, route.method)
+		}
+	}
+}
+
+func TestOpenAPIStatusEnumMatchesDomain(t *testing.T) {
+	var doc struct {
+		Components struct {
+			Schemas map[string]struct {
+				Properties map[string]struct {
+					Enum []string `yaml:"enum"`
+				} `yaml:"properties"`
+			} `yaml:"schemas"`
+		} `yaml:"components"`
+	}
+	if err := yaml.Unmarshal(openapiSpec, &doc); err != nil {
+		t.Fatalf("embedded openapi.yaml does not parse: %v", err)
+	}
+
+	statusProp, ok := doc.Components.Schemas["UpdateFlightStatusRequest"].Properties["status"]
+	if !ok {
+		t.Fatal("openapi.yaml is missing UpdateFlightStatusRequest.properties.status")
+	}
+
+	want := make(map[string]bool, len(domain.ValidFlightStatuses))
+	for _, s := range domain.ValidFlightStatuses {
+		want[string(s)] = true
+	}
+	got := make(map[string]bool, len(statusProp.Enum))
+	for _, s := range statusProp.Enum {
+		got[s] = true
+	}
+
+	for s := range want {
+		if !got[s] {
+			t.Errorf("openapi.yaml status enum is missing %q", s)
+		}
+	}
+	for s := range got {
+		if !want[s] {
+			t.Errorf("openapi.yaml status enum has %q, which is not in domain.ValidFlightStatuses", s)
 		}
 	}
 }

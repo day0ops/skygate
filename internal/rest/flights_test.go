@@ -172,6 +172,29 @@ func TestUpdateFlightStatus(t *testing.T) {
 	}
 }
 
+func TestUpdateFlightStatusPreservesPositionWhenHolding(t *testing.T) {
+	st := store.New()
+	st.PutFlight(domain.Flight{
+		ID:       "flt_1",
+		Status:   domain.StatusAirborne,
+		Position: &domain.Position{X: 10, Y: 20, Progress: 0.9},
+	})
+	mux := newFlightsTestMux(st)
+
+	body := strings.NewReader(`{"status":"holding"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/v1/flights/flt_1/status", body)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("got status %d, want 200, body=%s", rec.Code, rec.Body.String())
+	}
+	f, _ := st.GetFlight("flt_1")
+	if f.Position == nil {
+		t.Fatal("expected Position to be preserved when transitioning to holding")
+	}
+}
+
 func TestUpdateFlightStatusRejectsUnknownStatus(t *testing.T) {
 	st := store.New()
 	st.PutFlight(domain.Flight{ID: "flt_1", Status: domain.StatusScheduled})

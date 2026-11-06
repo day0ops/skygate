@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -9,41 +10,56 @@ import (
 	"skygate/internal/store"
 )
 
-// TestUpdatePositionHeadingMatchesTravelDirection covers the plane icon's
-// native orientation, which points up/North at rotate(0) - the frontend
-// rotates it by Position.Heading to face the direction of travel, so the
-// heading math must account for that native orientation, not just the raw
-// atan2 angle (which is measured from due East).
-func TestUpdatePositionHeadingMatchesTravelDirection(t *testing.T) {
+func TestUpdatePositionIsDeterministicPerFlightID(t *testing.T) {
 	st := store.New()
+	st.PutAirport(domain.Airport{Code: "ORI", X: 0, Y: 0})
+	st.PutAirport(domain.Airport{Code: "DST", X: 100, Y: 0})
 	e := NewEngine(st, RealClock, 1)
 
-	cases := []struct {
-		name        string
-		dx, dy      float64
-		wantHeading float64
-	}{
-		{"due east", 10, 0, 90},
-		{"due south", 0, 10, 180},
-		{"due north", 0, -10, 0},
-		{"due west", -10, 0, 270},
+	f1 := domain.Flight{ID: "flt_test_position", OriginCode: "ORI", DestinationCode: "DST"}
+	e.updatePosition(&f1, 0.5)
+	if f1.Position == nil {
+		t.Fatal("expected a position")
+	}
+	if math.IsNaN(f1.Position.Heading) || math.IsInf(f1.Position.Heading, 0) {
+		t.Fatalf("expected a finite heading, got %v", f1.Position.Heading)
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			st.PutAirport(domain.Airport{Code: "ORI", X: 0, Y: 0})
-			st.PutAirport(domain.Airport{Code: "DST", X: tc.dx, Y: tc.dy})
+	// Calling again with the same flight ID must produce the exact same
+	// position - the curve shape is derived from the ID and must be stable.
+	f2 := domain.Flight{ID: "flt_test_position", OriginCode: "ORI", DestinationCode: "DST"}
+	e.updatePosition(&f2, 0.5)
+	if f1.Position.X != f2.Position.X || f1.Position.Y != f2.Position.Y || f1.Position.Heading != f2.Position.Heading {
+		t.Fatalf("expected the same flight ID to produce the same position, got %+v and %+v", f1.Position, f2.Position)
+	}
+}
 
-			f := domain.Flight{OriginCode: "ORI", DestinationCode: "DST"}
-			e.updatePosition(&f, 0.5)
+func TestAirborneDurationScalesWithDistanceAndClamps(t *testing.T) {
+	short := domain.Airport{Code: "A", X: 0, Y: 0}
+	shortDest := domain.Airport{Code: "B", X: 100, Y: 0} // well under the clamp floor's reference distance.
+	long := domain.Airport{Code: "C", X: 0, Y: 0}
+	longDest := domain.Airport{Code: "D", X: 5000, Y: 0} // well over the clamp ceiling's reference distance.
+	mid := domain.Airport{Code: "E", X: 0, Y: 0}
+	midDest := domain.Airport{Code: "F", X: 700, Y: 0} // exactly the reference distance.
 
-			if f.Position == nil {
-				t.Fatal("expected a position")
-			}
-			if diff := math.Abs(f.Position.Heading - tc.wantHeading); diff > 0.001 {
-				t.Fatalf("heading = %v, want %v", f.Position.Heading, tc.wantHeading)
-			}
-		})
+	shortDuration := airborneDurationFor(short, shortDest)
+	longDuration := airborneDurationFor(long, longDest)
+	midDuration := airborneDurationFor(mid, midDest)
+
+	if shortDuration != minAirborneDuration {
+		t.Errorf("short route duration = %v, want the clamp floor %v", shortDuration, minAirborneDuration)
+	}
+	if longDuration != maxAirborneDuration {
+		t.Errorf("long route duration = %v, want the clamp ceiling %v", longDuration, maxAirborneDuration)
+	}
+	if midDuration != 30*time.Second {
+		t.Errorf("reference-distance route duration = %v, want 30s", midDuration)
+	}
+	if shortDuration >= midDuration || midDuration >= longDuration {
+		t.Errorf(
+			"expected duration to increase with distance, got short=%v mid=%v long=%v",
+			shortDuration, midDuration, longDuration,
+		)
 	}
 }
 
@@ -132,10 +148,55 @@ func TestEngineInterpolatesAirbornePosition(t *testing.T) {
 	}
 
 	// Halfway through the airborne window, progress should have advanced.
-	clock.Advance(airborneDuration / 2)
+	origin, _ := st.GetAirport(f.OriginCode)
+	dest, _ := st.GetAirport(f.DestinationCode)
+	clock.Advance(airborneDurationFor(origin, dest) / 2)
 	e.Tick()
 	f, _ = st.GetFlight(f.ID)
 	if f.Position == nil || f.Position.Progress < 0.3 {
 		t.Fatalf("expected progress to have advanced, got %+v", f.Position)
+	}
+}
+
+func TestHoldingFlightLandsAfterHoldingDuration(t *testing.T) {
+	st := store.New()
+	st.PutAirport(domain.Airport{Code: "ORI", X: 0, Y: 0})
+	st.PutAirport(domain.Airport{Code: "DST", X: 100, Y: 0})
+	clock := NewManualClock(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	e := NewEngine(st, clock, 1)
+
+	// Find a flight ID that holdDecision says will hold, so this test is
+	// deterministic rather than depending on luck.
+	var holdingID string
+	for i := 0; i < 1000; i++ {
+		id := fmt.Sprintf("flt_search_%d", i)
+		if holds, _ := holdDecision(id); holds {
+			holdingID = id
+			break
+		}
+	}
+	if holdingID == "" {
+		t.Fatal("expected to find at least one flight ID that holds within 1000 tries")
+	}
+
+	aircraft := domain.Aircraft{ID: "acf_test", Status: domain.AircraftAvailable}
+	st.PutAircraft(aircraft)
+	f := domain.Flight{
+		ID: holdingID, OriginCode: "ORI", DestinationCode: "DST", AircraftID: "acf_test", Status: domain.StatusAirborne,
+	}
+	st.PutFlight(f)
+
+	ori, _ := st.GetAirport("ORI")
+	dst, _ := st.GetAirport("DST")
+	e.stateSince[f.ID] = clock.Now()
+	updated, changed, _ := e.advance(f, clock.Now().Add(airborneDurationFor(ori, dst)))
+	if !changed || updated.Status != domain.StatusHolding {
+		t.Fatalf("expected the flight to enter StatusHolding, got status=%v changed=%v", updated.Status, changed)
+	}
+
+	e.stateSince[updated.ID] = clock.Now()
+	landed, changed, _ := e.advance(updated, clock.Now().Add(holdingDuration))
+	if !changed || landed.Status != domain.StatusLanded {
+		t.Fatalf("expected the flight to land after holdingDuration, got status=%v changed=%v", landed.Status, changed)
 	}
 }

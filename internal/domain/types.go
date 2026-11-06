@@ -10,6 +10,7 @@ const (
 	StatusBoarding  FlightStatus = "boarding"
 	StatusDeparted  FlightStatus = "departed"
 	StatusAirborne  FlightStatus = "airborne"
+	StatusHolding   FlightStatus = "holding"
 	StatusLanded    FlightStatus = "landed"
 	StatusDelayed   FlightStatus = "delayed"
 	StatusCancelled FlightStatus = "cancelled"
@@ -20,7 +21,7 @@ const (
 // with a status one API accepts and the other rejects.
 var ValidFlightStatuses = []FlightStatus{
 	StatusScheduled, StatusBoarding, StatusDeparted, StatusAirborne,
-	StatusLanded, StatusDelayed, StatusCancelled,
+	StatusHolding, StatusLanded, StatusDelayed, StatusCancelled,
 }
 
 // IsValidFlightStatus reports whether s matches one of ValidFlightStatuses.

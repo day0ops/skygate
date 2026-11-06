@@ -214,7 +214,7 @@ components:
       properties:
         status:
           type: string
-          enum: [scheduled, boarding, departed, airborne, landed, delayed, cancelled]
+          enum: [scheduled, boarding, departed, airborne, holding, landed, delayed, cancelled]
     CreateBookingRequest:
       type: object
       required: [flightId, passengerName, seat, class]

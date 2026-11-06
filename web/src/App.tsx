@@ -4,8 +4,9 @@ import { useFlightSocket } from "./hooks/useFlightSocket";
 import { Header } from "./components/Header";
 import { FlightMap } from "./components/FlightMap";
 import { ActivityLog } from "./components/ActivityLog";
+import { Footer } from "./components/Footer";
 
-/** Composes the header, flight map, and activity log into the skygate dashboard. */
+/** Composes the header, flight map, activity log, and footer into the skygate dashboard. */
 export function App() {
   const meta = useMeta();
   const airports = useAirports();
@@ -18,6 +19,7 @@ export function App() {
         <FlightMap airports={airports} flights={flights} />
         <ActivityLog entries={log} />
       </main>
+      <Footer meta={meta} />
     </>
   );
 }

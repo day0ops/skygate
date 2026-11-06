@@ -3,7 +3,7 @@ import type { Flight, FlightUpdateMessage, LogEntry } from "../types";
 
 const RECONNECT_DELAY_MS = 2000;
 const LANDED_REMOVAL_DELAY_MS = 8000;
-const LOG_CAP = 50;
+const LOG_CAP = 30;
 const RPS_INTERVAL_MS = 1000;
 
 export interface FlightSocketState {

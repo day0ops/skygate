@@ -49,11 +49,11 @@ func TestUpdatePositionHeadingMatchesTravelDirection(t *testing.T) {
 
 func TestAirborneDurationScalesWithDistanceAndClamps(t *testing.T) {
 	short := domain.Airport{Code: "A", X: 0, Y: 0}
-	shortDest := domain.Airport{Code: "B", X: 100, Y: 0} // well under the clamp floor's reference distance
+	shortDest := domain.Airport{Code: "B", X: 100, Y: 0} // well under the clamp floor's reference distance.
 	long := domain.Airport{Code: "C", X: 0, Y: 0}
-	longDest := domain.Airport{Code: "D", X: 5000, Y: 0} // well over the clamp ceiling's reference distance
+	longDest := domain.Airport{Code: "D", X: 5000, Y: 0} // well over the clamp ceiling's reference distance.
 	mid := domain.Airport{Code: "E", X: 0, Y: 0}
-	midDest := domain.Airport{Code: "F", X: 700, Y: 0} // exactly the reference distance
+	midDest := domain.Airport{Code: "F", X: 700, Y: 0} // exactly the reference distance.
 
 	shortDuration := airborneDurationFor(short, shortDest)
 	longDuration := airborneDurationFor(long, longDest)
@@ -69,7 +69,10 @@ func TestAirborneDurationScalesWithDistanceAndClamps(t *testing.T) {
 		t.Errorf("reference-distance route duration = %v, want 30s", midDuration)
 	}
 	if !(shortDuration < midDuration && midDuration < longDuration) {
-		t.Errorf("expected duration to increase with distance, got short=%v mid=%v long=%v", shortDuration, midDuration, longDuration)
+		t.Errorf(
+			"expected duration to increase with distance, got short=%v mid=%v long=%v",
+			shortDuration, midDuration, longDuration,
+		)
 	}
 }
 

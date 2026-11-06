@@ -187,7 +187,9 @@ func (e *Engine) spawnFlight(now time.Time) {
 		Status:             status,
 		DelayMinutes:       delay,
 		ScheduledDeparture: now.Add(scheduledDuration + boardingDuration),
-		ScheduledArrival:   now.Add(scheduledDuration + boardingDuration + departedDuration + airborneDurationFor(origin, dest)),
+		ScheduledArrival: now.Add(
+			scheduledDuration + boardingDuration + departedDuration + airborneDurationFor(origin, dest),
+		),
 	}
 
 	aircraft.Status = domain.AircraftInFlight

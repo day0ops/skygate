@@ -288,11 +288,10 @@ func (e *Engine) releaseAircraft(id string) {
 func (e *Engine) updatePosition(f *domain.Flight, progress float64) {
 	origin, _ := e.store.GetAirport(f.OriginCode)
 	dest, _ := e.store.GetAirport(f.DestinationCode)
-	x := origin.X + (dest.X-origin.X)*progress
-	y := origin.Y + (dest.Y-origin.Y)*progress
+	curve := newFlightCurve(f.ID, origin, dest)
+	x, y, heading := curve.pointAt(origin, dest, progress)
 	// atan2 measures from due East; the plane icon's native orientation points
 	// North (up) at rotate(0), so the raw angle needs a 90-degree offset to
 	// actually face the travel direction once the frontend rotates it.
-	heading := math.Atan2(dest.Y-origin.Y, dest.X-origin.X)*180/math.Pi + 90
-	f.Position = &domain.Position{X: x, Y: y, Heading: heading, Progress: progress}
+	f.Position = &domain.Position{X: x, Y: y, Heading: heading + 90, Progress: progress}
 }

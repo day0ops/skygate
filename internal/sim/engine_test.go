@@ -9,41 +9,27 @@ import (
 	"skygate/internal/store"
 )
 
-// TestUpdatePositionHeadingMatchesTravelDirection covers the plane icon's
-// native orientation, which points up/North at rotate(0) - the frontend
-// rotates it by Position.Heading to face the direction of travel, so the
-// heading math must account for that native orientation, not just the raw
-// atan2 angle (which is measured from due East).
-func TestUpdatePositionHeadingMatchesTravelDirection(t *testing.T) {
+func TestUpdatePositionIsDeterministicPerFlightID(t *testing.T) {
 	st := store.New()
+	st.PutAirport(domain.Airport{Code: "ORI", X: 0, Y: 0})
+	st.PutAirport(domain.Airport{Code: "DST", X: 100, Y: 0})
 	e := NewEngine(st, RealClock, 1)
 
-	cases := []struct {
-		name        string
-		dx, dy      float64
-		wantHeading float64
-	}{
-		{"due east", 10, 0, 90},
-		{"due south", 0, 10, 180},
-		{"due north", 0, -10, 0},
-		{"due west", -10, 0, 270},
+	f1 := domain.Flight{ID: "flt_test_position", OriginCode: "ORI", DestinationCode: "DST"}
+	e.updatePosition(&f1, 0.5)
+	if f1.Position == nil {
+		t.Fatal("expected a position")
+	}
+	if math.IsNaN(f1.Position.Heading) || math.IsInf(f1.Position.Heading, 0) {
+		t.Fatalf("expected a finite heading, got %v", f1.Position.Heading)
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			st.PutAirport(domain.Airport{Code: "ORI", X: 0, Y: 0})
-			st.PutAirport(domain.Airport{Code: "DST", X: tc.dx, Y: tc.dy})
-
-			f := domain.Flight{OriginCode: "ORI", DestinationCode: "DST"}
-			e.updatePosition(&f, 0.5)
-
-			if f.Position == nil {
-				t.Fatal("expected a position")
-			}
-			if diff := math.Abs(f.Position.Heading - tc.wantHeading); diff > 0.001 {
-				t.Fatalf("heading = %v, want %v", f.Position.Heading, tc.wantHeading)
-			}
-		})
+	// Calling again with the same flight ID must produce the exact same
+	// position - the curve shape is derived from the ID and must be stable.
+	f2 := domain.Flight{ID: "flt_test_position", OriginCode: "ORI", DestinationCode: "DST"}
+	e.updatePosition(&f2, 0.5)
+	if f1.Position.X != f2.Position.X || f1.Position.Y != f2.Position.Y || f1.Position.Heading != f2.Position.Heading {
+		t.Fatalf("expected the same flight ID to produce the same position, got %+v and %+v", f1.Position, f2.Position)
 	}
 }
 

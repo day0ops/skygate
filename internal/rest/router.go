@@ -12,6 +12,7 @@ type Deps struct {
 	Store        *store.Store
 	Version      string
 	Color        string
+	BuildVersion string
 	PanicEnabled bool
 }
 
@@ -35,7 +36,7 @@ func NewMux(d Deps) (*http.ServeMux, *ChaosState) {
 	RegisterAirports(mux, d.Store)
 	RegisterFlights(mux, d.Store)
 	RegisterBookings(mux, d.Store)
-	RegisterMeta(mux, d.Version, d.Color)
+	RegisterMeta(mux, d.Version, d.Color, d.BuildVersion)
 	RegisterOpenAPI(mux)
 	mux.Handle("GET /metrics", metrics.Handler())
 

@@ -18,13 +18,36 @@ const (
 	scheduledDuration = 10 * time.Second
 	boardingDuration  = 8 * time.Second
 	departedDuration  = 4 * time.Second
-	airborneDuration  = 30 * time.Second
 	landedDuration    = 8 * time.Second
+
+	// Airborne duration scales with actual distance between airports instead
+	// of being fixed, clamped so neither the shortest nor longest route in
+	// seedAirports breaks the "visibly dynamic in a live demo" pacing above.
+	referenceDistance        = 700.0
+	referenceAirborneSeconds = 30.0
+	minAirborneDuration      = 18 * time.Second
+	maxAirborneDuration      = 50 * time.Second
 
 	maxActiveFlights = 12
 	spawnInterval    = 6 * time.Second
 	delayChance      = 0.2
 )
+
+// airborneDurationFor scales flight duration by the actual distance between
+// origin and dest, clamped to [minAirborneDuration, maxAirborneDuration] so
+// routes stay demo-paced at both extremes while still feeling different.
+func airborneDurationFor(origin, dest domain.Airport) time.Duration {
+	dist := math.Hypot(dest.X-origin.X, dest.Y-origin.Y)
+	seconds := referenceAirborneSeconds * (dist / referenceDistance)
+	d := time.Duration(seconds * float64(time.Second))
+	if d < minAirborneDuration {
+		return minAirborneDuration
+	}
+	if d > maxAirborneDuration {
+		return maxAirborneDuration
+	}
+	return d
+}
 
 // Engine advances the simulated flight world forward in time and notifies
 // subscribers whenever a flight is created or changes.
@@ -164,7 +187,7 @@ func (e *Engine) spawnFlight(now time.Time) {
 		Status:             status,
 		DelayMinutes:       delay,
 		ScheduledDeparture: now.Add(scheduledDuration + boardingDuration),
-		ScheduledArrival:   now.Add(scheduledDuration + boardingDuration + departedDuration + airborneDuration),
+		ScheduledArrival:   now.Add(scheduledDuration + boardingDuration + departedDuration + airborneDurationFor(origin, dest)),
 	}
 
 	aircraft.Status = domain.AircraftInFlight
@@ -226,7 +249,9 @@ func (e *Engine) advance(f domain.Flight, now time.Time) (updated domain.Flight,
 			return f, true, false
 		}
 	case domain.StatusAirborne:
-		progress := float64(elapsed) / float64(airborneDuration)
+		origin, _ := e.store.GetAirport(f.OriginCode)
+		dest, _ := e.store.GetAirport(f.DestinationCode)
+		progress := float64(elapsed) / float64(airborneDurationFor(origin, dest))
 		if progress >= 1 {
 			f.Status = domain.StatusLanded
 			f.Position = nil

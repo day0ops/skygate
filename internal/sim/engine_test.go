@@ -47,6 +47,32 @@ func TestUpdatePositionHeadingMatchesTravelDirection(t *testing.T) {
 	}
 }
 
+func TestAirborneDurationScalesWithDistanceAndClamps(t *testing.T) {
+	short := domain.Airport{Code: "A", X: 0, Y: 0}
+	shortDest := domain.Airport{Code: "B", X: 100, Y: 0} // well under the clamp floor's reference distance
+	long := domain.Airport{Code: "C", X: 0, Y: 0}
+	longDest := domain.Airport{Code: "D", X: 5000, Y: 0} // well over the clamp ceiling's reference distance
+	mid := domain.Airport{Code: "E", X: 0, Y: 0}
+	midDest := domain.Airport{Code: "F", X: 700, Y: 0} // exactly the reference distance
+
+	shortDuration := airborneDurationFor(short, shortDest)
+	longDuration := airborneDurationFor(long, longDest)
+	midDuration := airborneDurationFor(mid, midDest)
+
+	if shortDuration != minAirborneDuration {
+		t.Errorf("short route duration = %v, want the clamp floor %v", shortDuration, minAirborneDuration)
+	}
+	if longDuration != maxAirborneDuration {
+		t.Errorf("long route duration = %v, want the clamp ceiling %v", longDuration, maxAirborneDuration)
+	}
+	if midDuration != 30*time.Second {
+		t.Errorf("reference-distance route duration = %v, want 30s", midDuration)
+	}
+	if !(shortDuration < midDuration && midDuration < longDuration) {
+		t.Errorf("expected duration to increase with distance, got short=%v mid=%v long=%v", shortDuration, midDuration, longDuration)
+	}
+}
+
 func TestEngineSpawnsAndAdvances(t *testing.T) {
 	st := store.New()
 	clock := NewManualClock(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
@@ -132,7 +158,9 @@ func TestEngineInterpolatesAirbornePosition(t *testing.T) {
 	}
 
 	// Halfway through the airborne window, progress should have advanced.
-	clock.Advance(airborneDuration / 2)
+	origin, _ := st.GetAirport(f.OriginCode)
+	dest, _ := st.GetAirport(f.DestinationCode)
+	clock.Advance(airborneDurationFor(origin, dest) / 2)
 	e.Tick()
 	f, _ = st.GetFlight(f.ID)
 	if f.Position == nil || f.Position.Progress < 0.3 {

@@ -1,12 +1,51 @@
 package sim
 
 import (
+	"math"
 	"testing"
 	"time"
 
 	"skygate/internal/domain"
 	"skygate/internal/store"
 )
+
+// TestUpdatePositionHeadingMatchesTravelDirection covers the plane icon's
+// native orientation, which points up/North at rotate(0) - the frontend
+// rotates it by Position.Heading to face the direction of travel, so the
+// heading math must account for that native orientation, not just the raw
+// atan2 angle (which is measured from due East).
+func TestUpdatePositionHeadingMatchesTravelDirection(t *testing.T) {
+	st := store.New()
+	e := NewEngine(st, RealClock, 1)
+
+	cases := []struct {
+		name        string
+		dx, dy      float64
+		wantHeading float64
+	}{
+		{"due east", 10, 0, 90},
+		{"due south", 0, 10, 180},
+		{"due north", 0, -10, 0},
+		{"due west", -10, 0, 270},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st.PutAirport(domain.Airport{Code: "ORI", X: 0, Y: 0})
+			st.PutAirport(domain.Airport{Code: "DST", X: tc.dx, Y: tc.dy})
+
+			f := domain.Flight{OriginCode: "ORI", DestinationCode: "DST"}
+			e.updatePosition(&f, 0.5)
+
+			if f.Position == nil {
+				t.Fatal("expected a position")
+			}
+			if diff := math.Abs(f.Position.Heading - tc.wantHeading); diff > 0.001 {
+				t.Fatalf("heading = %v, want %v", f.Position.Heading, tc.wantHeading)
+			}
+		})
+	}
+}
 
 func TestEngineSpawnsAndAdvances(t *testing.T) {
 	st := store.New()

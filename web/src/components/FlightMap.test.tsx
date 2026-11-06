@@ -39,6 +39,14 @@ describe("FlightMap", () => {
     expect(marker.getAttribute("transform")).toContain(`translate(${sfo.x}, ${sfo.y})`);
   });
 
+  it("falls back to the destination airport's position when a landed flight has no position", () => {
+    const flights = new Map([["fl-1", flight({ position: undefined, status: "landed" })]]);
+    render(<FlightMap airports={[sfo, jfk]} flights={flights} />);
+
+    const marker = screen.getByTestId("flight-fl-1");
+    expect(marker.getAttribute("transform")).toContain(`translate(${jfk.x}, ${jfk.y})`);
+  });
+
   it("rotates the flight marker to match its heading", () => {
     const flights = new Map([
       ["fl-1", flight({ position: { x: 500, y: 300, heading: 135, progress: 0.5 } })],

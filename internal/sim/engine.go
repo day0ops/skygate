@@ -260,8 +260,8 @@ func (e *Engine) advance(f domain.Flight, now time.Time) (updated domain.Flight,
 		if progress >= 1 {
 			if holds, _ := holdDecision(f.ID); holds {
 				f.Status = domain.StatusHolding
-				f.Position = nil
 				e.stateSince[f.ID] = now
+				e.updateHoldingPosition(&f, 0)
 				return f, true, false
 			}
 			f.Status = domain.StatusLanded
